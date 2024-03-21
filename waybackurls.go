@@ -1,52 +1,50 @@
-package main
+package waybackurls
 
 import (
 	"bufio"
 	"encoding/json"
-	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
-func main() {
-
-	var domains []string
-
-	var dates bool
-	flag.BoolVar(&dates, "dates", false, "show date of fetch in the first column")
-
-	var noSubs bool
-	flag.BoolVar(&noSubs, "no-subs", false, "don't include subdomains of the target domain")
-
-	var getVersionsFlag bool
-	flag.BoolVar(&getVersionsFlag, "get-versions", false, "list URLs for crawled versions of input URL(s)")
-
-	flag.Parse()
-
-	if flag.NArg() > 0 {
-		// fetch for a single domain
-		domains = []string{flag.Arg(0)}
-	} else {
-
-		// fetch for all domains from stdin
-		sc := bufio.NewScanner(os.Stdin)
-		for sc.Scan() {
-			domains = append(domains, sc.Text())
-		}
-
-		if err := sc.Err(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to read input: %s\n", err)
-		}
+func stripProtocol(rawURL string) (string, error) {
+	url, err := url.Parse(rawURL)
+	if err != nil {
+		log.Println(err)
+		return "", err
 	}
+	url.Scheme = ""
+	return url.String(), nil
+}
+
+func WaybackURLS(domains []string) []string {
+
+	var results []string
+	options := CreateDefaultOptions(domains)
+
+	// var domains []string
+	//
+	// var dates bool
+	// flag.BoolVar(&dates, "dates", false, "show date of fetch in the first column")
+	//
+	// var noSubs bool
+	// flag.BoolVar(&noSubs, "no-subs", false, "don't include subdomains of the target domain")
+	//
+	// var getVersionsFlag bool
+	// flag.BoolVar(&getVersionsFlag, "get-versions", false, "list URLs for crawled versions of input URL(s)")
+	//
+	// flag.Parse()
+
+	// fetch for all domains from stdin
 
 	// get-versions mode
-	if getVersionsFlag {
+	if options.getVersionsFlag {
 
 		for _, u := range domains {
 			versions, err := getVersions(u)
@@ -56,7 +54,6 @@ func main() {
 			fmt.Println(strings.Join(versions, "\n"))
 		}
 
-		return
 	}
 
 	fetchFns := []fetchFn{
@@ -75,12 +72,12 @@ func main() {
 			fetch := fn
 			go func() {
 				defer wg.Done()
-				resp, err := fetch(domain, noSubs)
+				resp, err := fetch(domain, options.noSubs)
 				if err != nil {
 					return
 				}
 				for _, r := range resp {
-					if noSubs && isSubdomain(r.url, domain) {
+					if options.noSubs && isSubdomain(r.url, domain) {
 						continue
 					}
 					wurls <- r
@@ -93,27 +90,32 @@ func main() {
 			close(wurls)
 		}()
 
-		seen := make(map[string]bool)
 		for w := range wurls {
-			if _, ok := seen[w.url]; ok {
+
+			path, err := stripProtocol(w.url)
+			if err != nil {
+				log.Println(err)
 				continue
 			}
-			seen[w.url] = true
-
-			if dates {
-
-				d, err := time.Parse("20060102150405", w.date)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to parse date [%s] for URL [%s]\n", w.date, w.url)
-				}
-
-				fmt.Printf("%s %s\n", d.Format(time.RFC3339), w.url)
-
-			} else {
-				fmt.Println(w.url)
-			}
+			path = strings.TrimPrefix(path, "//")
+			results = append(results, path)
 		}
 	}
+	return removeDuplicate(results)
+}
+
+func removeDuplicate[T comparable](sliceList []T) []T {
+	allKeys := make(map[T]bool)
+	list := []T{}
+	for _, item := range sliceList {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
+}
+func main() {
 
 }
 
@@ -137,7 +139,7 @@ func getWaybackURLs(domain string, noSubs bool) ([]wurl, error) {
 		return []wurl{}, err
 	}
 
-	raw, err := ioutil.ReadAll(res.Body)
+	raw, err := io.ReadAll(res.Body)
 
 	res.Body.Close()
 	if err != nil {
