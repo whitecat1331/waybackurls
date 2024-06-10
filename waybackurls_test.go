@@ -28,6 +28,6 @@ var tv = NewTestingValues()
 
 func TestWaybackURLS(t *testing.T) {
 	t.Log(tv.Domains)
-	wurls := WaybackURLS(tv.Domains)
+	wurls := WaybackURLS(tv.Domains, "")
 	t.Log(wurls)
 }
