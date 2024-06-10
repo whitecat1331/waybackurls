@@ -13,18 +13,32 @@ import (
 	"sync"
 )
 
+const LOGFILE = "waybackurls.log"
+
 func stripProtocol(rawURL string) (string, error) {
 	url, err := url.Parse(rawURL)
 	if err != nil {
-		slog.Error(err.Error())
 		return "", err
 	}
 	url.Scheme = ""
 	return url.String(), nil
 }
 
-func WaybackURLS(domains []string) []string {
+func WaybackURLS(domains []string, logfile string) []string {
 
+	if logfile == "" {
+		logfile = LOGFILE
+	}
+
+	f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		slog.Error("Logfile not created")
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	logger := slog.New(slog.NewTextHandler(f, nil))
 	var results []string
 	options := CreateDefaultOptions(domains)
 
@@ -98,7 +112,7 @@ func WaybackURLS(domains []string) []string {
 
 			path, err := stripProtocol(w.url)
 			if err != nil {
-				slog.Error(err.Error())
+				logger.Warn(err.Error())
 				continue
 			}
 			path = strings.TrimPrefix(path, "//")
