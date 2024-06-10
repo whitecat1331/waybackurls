@@ -1,6 +1,6 @@
-waybackurls
 *.swp
 *.tgz
 *.zip
 *.exe
 *.env
+*.log
