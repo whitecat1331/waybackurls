@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +16,7 @@ import (
 func stripProtocol(rawURL string) (string, error) {
 	url, err := url.Parse(rawURL)
 	if err != nil {
-		log.Println(err)
+		slog.Error(err.Error())
 		return "", err
 	}
 	url.Scheme = ""
@@ -63,6 +63,10 @@ func WaybackURLS(domains []string) []string {
 	}
 
 	for _, domain := range domains {
+		if domain == "" {
+			fmt.Println("No Domain entered")
+			continue
+		}
 
 		var wg sync.WaitGroup
 		wurls := make(chan wurl)
@@ -94,7 +98,7 @@ func WaybackURLS(domains []string) []string {
 
 			path, err := stripProtocol(w.url)
 			if err != nil {
-				log.Println(err)
+				slog.Error(err.Error())
 				continue
 			}
 			path = strings.TrimPrefix(path, "//")
@@ -114,9 +118,6 @@ func removeDuplicate[T comparable](sliceList []T) []T {
 		}
 	}
 	return list
-}
-func main() {
-
 }
 
 type wurl struct {
