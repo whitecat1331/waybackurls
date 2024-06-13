@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/whitecat1331/godevsuite"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,32 +13,32 @@ import (
 	"sync"
 )
 
-const LOGFILE = "waybackurls.log"
+const LOGPATH = "logs/waybackurls.log"
 
 func stripProtocol(rawURL string) (string, error) {
 	url, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
 	}
+
 	url.Scheme = ""
 	return url.String(), nil
 }
 
-func WaybackURLS(domains []string, logfile string) []string {
+func WaybackURLS(domains []string, logPath string) []string {
 
-	if logfile == "" {
-		logfile = LOGFILE
+	if logPath == "" {
+		logPath = LOGPATH
 	}
 
-	f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE, 0644)
+	logger, f, err := godevsuite.SetupSLogger(logPath)
 	if err != nil {
-		slog.Error("Logfile not created")
-		slog.Error(err.Error())
+		fmt.Println("Logger not created")
+		fmt.Printf("%#T", err)
+		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 	defer f.Close()
-
-	logger := slog.New(slog.NewTextHandler(f, nil))
 	var results []string
 	options := CreateDefaultOptions(domains)
 
@@ -78,7 +78,7 @@ func WaybackURLS(domains []string, logfile string) []string {
 
 	for _, domain := range domains {
 		if domain == "" {
-			fmt.Println("No Domain entered")
+			logger.Info("No Domain entered")
 			continue
 		}
 
@@ -112,7 +112,12 @@ func WaybackURLS(domains []string, logfile string) []string {
 
 			path, err := stripProtocol(w.url)
 			if err != nil {
-				logger.Warn(err.Error())
+				switch errType := err.(type) {
+				case *url.Error:
+					logger.Info(errType.Error())
+				default:
+					logger.Error(fmt.Sprintf("Unexpected Error:\n%s\n%#T", errType.Error(), errType))
+				}
 				continue
 			}
 			path = strings.TrimPrefix(path, "//")
