@@ -25,7 +25,7 @@ func stripProtocol(rawURL string) (string, error) {
 	return url.String(), nil
 }
 
-func WaybackURLS(domains []string, logPath string) []string {
+func WaybackURLS(domains []string, logPath string) ([]string, error) {
 
 	if logPath == "" {
 		logPath = LOGPATH
@@ -36,7 +36,7 @@ func WaybackURLS(domains []string, logPath string) []string {
 		fmt.Println("Logger not created")
 		fmt.Printf("%#T", err)
 		fmt.Println(err.Error())
-		os.Exit(1)
+		return nil, err
 	}
 	defer f.Close()
 	var results []string
@@ -124,7 +124,7 @@ func WaybackURLS(domains []string, logPath string) []string {
 			results = append(results, path)
 		}
 	}
-	return removeDuplicate(results)
+	return removeDuplicate(results), nil
 }
 
 func removeDuplicate[T comparable](sliceList []T) []T {
