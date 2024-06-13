@@ -124,19 +124,7 @@ func WaybackURLS(domains []string, logPath string) ([]string, error) {
 			results = append(results, path)
 		}
 	}
-	return removeDuplicate(results), nil
-}
-
-func removeDuplicate[T comparable](sliceList []T) []T {
-	allKeys := make(map[T]bool)
-	list := []T{}
-	for _, item := range sliceList {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
-		}
-	}
-	return list
+	return godevsuite.RemoveDuplicates(results), nil
 }
 
 type wurl struct {
